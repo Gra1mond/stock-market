@@ -3,7 +3,7 @@ from aiohttp.web_app import Application
 __all__ = ("setup_routes",)
 
 
-def setup_routes(application: Application):
-    import app.users.routes
+def setup_routes(app: Application):
+    from app.users.routes import setup_routes as users_setup_route
 
-    app.users.routes.register_urls(application)
+    users_setup_route(app)
