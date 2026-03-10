@@ -1,5 +1,7 @@
 from typing import Optional
-
+from aiohttp_session import setup
+from aiohttp_session.cookie_storage import SimpleCookieStorage
+"""переделать на зашифрованные """
 from aiohttp.web import (
     Application as AiohttpApplication,
     View as AiohttpView,
@@ -51,5 +53,6 @@ app = Application()
 
 def setup_app(config_path: str) -> Application:
     setup_routes(app)
+    setup(app, SimpleCookieStorage())
     setup_store(app)
     return app
