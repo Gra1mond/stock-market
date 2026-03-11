@@ -8,12 +8,11 @@ class UsersLoginView(View):
 
         data = await self.data()
 
-        input_url = data.get("url")
         username = data.get("username")
 
-        user = await self.store.user.get_by_user_id(input_url)
+        user = await self.store.user.get_by_user_id(username)
         if not user:
-            return """Дописать error (можно в отдельный файл)"""
+            return json_response(status=404, data={"error": "User not found"})
         session = await get_session(self.request)
         session["user_id"] = user.id
         return json_response(data={"id": user.id, "username": user.username})

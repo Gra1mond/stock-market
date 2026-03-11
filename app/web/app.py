@@ -44,7 +44,7 @@ class View(AiohttpView):
         return self.request.app.store
     
     async def data(self) -> dict:
-        return await self.request.json("data",{})
+        return await self.request.json()
 
 
 

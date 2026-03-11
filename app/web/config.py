@@ -9,7 +9,7 @@ class BotConfig:
 @dataclass
 class UserConfig:
     user_id:str
-    username:str
+    username:str|None = None
 
 @dataclass
 class SessionConfig:

@@ -6,6 +6,7 @@ __all__ = ("register_urls",)
 
 
 def setup_routes(app: "Application"):
-    from app.users.views import UsersLoginView
-    
-    app.router.add_route("/users.login",UsersLoginView)
+    from app.users.views import UsersLoginView, UsersCurrentView
+
+    app.router.add_view("/users.login", UsersLoginView)
+    app.router.add_view("/users.current", UsersCurrentView)

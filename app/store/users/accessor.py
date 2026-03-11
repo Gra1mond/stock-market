@@ -8,8 +8,8 @@ if typing.TYPE_CHECKING:
     from app.web.app import Application
 
 class UserAccessor(BaseAccessor):
-    async def connect(self, current_id: str, app: "Application") -> UserConfig:
-        new_user = UserConfig(user_id=current_id)
+    async def connect_user(self, current_id: str, app: "Application") -> UserConfig:
+        new_user = UserConfig(user_id=current_id,)
         existing_user = await self.get_by_user_id(current_id)
 
         if existing_user:
@@ -17,7 +17,9 @@ class UserAccessor(BaseAccessor):
             user_config = new_user  
         else:
             app.logger.info(f"Создаем нового пользователя {current_id}")
-            await self.create_user(id=current_id)  
+
+            await self.create_user(id=current_id)
+            """Добавить сюда username при регистрации и подключить его в view"""  
             user_config = new_user
             app.config.users.append(new_user)
         
@@ -37,7 +39,6 @@ class UserAccessor(BaseAccessor):
         if not self.app.database.session:
             raise RuntimeError("Database session is not started")
         new_user = UserModel(username=username,id=id)
-
         async with self.app.database.session() as session:
             session.add(new_user)
             await session.commit()
