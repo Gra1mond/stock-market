@@ -8,7 +8,7 @@ if typing.TYPE_CHECKING:
     from app.web.app import Application
 
 class UserAccessor(BaseAccessor):
-    async def connect_user(self, current_id: str, app: "Application") -> UserConfig:
+    async def connect_user(self, current_id: str, app: "Application", input_username: str) -> UserConfig:
         new_user = UserConfig(user_id=current_id,)
         existing_user = await self.get_by_user_id(current_id)
 
@@ -18,7 +18,7 @@ class UserAccessor(BaseAccessor):
         else:
             app.logger.info(f"Создаем нового пользователя {current_id}")
 
-            await self.create_user(id=current_id)
+            await self.create_user(id=current_id,username=input_username)
             """Добавить сюда username при регистрации и подключить его в view"""  
             user_config = new_user
             app.config.users.append(new_user)
