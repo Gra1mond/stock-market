@@ -4,7 +4,7 @@ if typing.TYPE_CHECKING:
     from app.web.app import Application
 
 class BaseAccessor:
-    def __init__(self,app:Application,*args,**kwargs):
+    def __init__(self,app:"Application",*args,**kwargs):
         self.app = app
         '''Допилить логирование'''
         app.on_startup.append(self.connect)

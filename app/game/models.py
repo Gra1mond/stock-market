@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import BigInteger, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.store.database.sqlalchemestry_base import BaseModel
@@ -9,7 +9,7 @@ from app.store.database.sqlalchemestry_base import BaseModel
 class Game(BaseModel):
     __tablename__ = "game"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True, nullable=False)
-    chat_id: Mapped[int] = mapped_column(nullable=False)
+    chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     state: Mapped[str] = mapped_column(nullable=False)
     rounds: Mapped[list["Round"]] = relationship("Round", back_populates="game")
     players: Mapped[list["Player"]] = relationship("Player", back_populates="game")
@@ -19,7 +19,7 @@ class Player(BaseModel):
     __tablename__ = "player"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True, nullable=False)
     game_id: Mapped[int] = mapped_column(ForeignKey("game.id"), nullable=False)
-    tg_user_id: Mapped[int] = mapped_column(nullable=False)
+    tg_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     balance: Mapped[int] = mapped_column()
     game: Mapped["Game"] = relationship("Game", back_populates="players")
     stock_portfolio: Mapped[list["PlayerStock"]] = relationship("PlayerStock", back_populates="player")

@@ -3,14 +3,19 @@ from app.store.database.database import Database
 
 if typing.TYPE_CHECKING:
     from app.web.app import Application
-    from app.store.users.accessor import UserAccessor  
+    from app.store.users.accessor import UserAccessor
+    from app.game.accessor import GameAccessor
+    from app.store.bot.accessor import BotAccessor
 
 class Store:
     def __init__(self, app: "Application"):
         from app.store.users.accessor import UserAccessor
-        
-        
+        from app.game.accessor import GameAccessor
+        from app.store.bot.accessor import BotAccessor
+
         self.user: UserAccessor = UserAccessor(app)
+        self.game: GameAccessor = GameAccessor(app)
+        self.bot: BotAccessor = BotAccessor(app)
 
 def setup_store(app: "Application"):
     app.database = Database(app)

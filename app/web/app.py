@@ -1,6 +1,6 @@
 from typing import Optional
 from aiohttp_session import setup
-from aiohttp_session.cookie_storage import SimpleCookieStorage
+from aiohttp_session.cookie_storage import EncryptedCookieStorage
 """переделать на зашифрованные """
 from aiohttp.web import (
     Application as AiohttpApplication,
@@ -11,10 +11,12 @@ from app.store import Store
 from app.store.store import setup_store
 from app.users.models import UserModel
 from app.web.config import Config
+from app.bot.polling import start_polling, stop_polling
 
 from app.store.database.database import Database
 
 from .routes import setup_routes
+from .config import setup_config
 
 __all__ = ("Application",)
 
@@ -52,7 +54,11 @@ app = Application()
 
 
 def setup_app(config_path: str) -> Application:
+    setup_config(app, config_path)
     setup_routes(app)
-    setup(app, SimpleCookieStorage())
+    session_key = app.config.session.key
+    setup(app, EncryptedCookieStorage(session_key))
     setup_store(app)
+    app.on_startup.append(start_polling)
+    app.on_cleanup.append(stop_polling)
     return app
