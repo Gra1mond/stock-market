@@ -21,6 +21,7 @@ class Player(BaseModel):
     game_id: Mapped[int] = mapped_column(ForeignKey("game.id"), nullable=False)
     tg_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     balance: Mapped[int] = mapped_column()
+    tg_username: Mapped[str | None] = mapped_column(nullable=True)
     game: Mapped["Game"] = relationship("Game", back_populates="players")
     stock_portfolio: Mapped[list["PlayerStock"]] = relationship("PlayerStock", back_populates="player")
 
@@ -60,3 +61,14 @@ class PlayerStock(BaseModel):
     stock_id: Mapped[int] = mapped_column(ForeignKey("stock.id"), nullable=False)
     quantity: Mapped[int] = mapped_column()
     player: Mapped["Player"] = relationship("Player", back_populates="stock_portfolio")
+
+
+class LeaderboardEntry(BaseModel):
+    __tablename__ = "leaderboard_entry"
+    id: Mapped[int] = mapped_column(primary_key=True, unique=True, nullable=False)
+    game_id: Mapped[int] = mapped_column(ForeignKey("game.id"), nullable=False)
+    player_id: Mapped[int] = mapped_column(nullable=False)
+    player_tg_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    player_username: Mapped[str | None] = mapped_column(nullable=True)
+    final_balance: Mapped[int] = mapped_column()
+    recorded_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)

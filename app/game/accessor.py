@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
 
 from app.base.base_accessor import BaseAccessor
-from app.game.models import Game, Move, Player, PlayerStock, Round, Stock
+from app.game.constants import STARTING_BALANCE
+from app.game.models import Game, LeaderboardEntry, Move, Player, PlayerStock, Round, Stock
 from app.game.states import GameState
 import typing
 
@@ -37,10 +38,10 @@ class GameAccessor(BaseAccessor):
             )
             await session.commit()
 
-    async def create_player(self, tg_user_id: int, game_id: int, balance: int = 1000) -> Player:
+    async def create_player(self, tg_user_id: int, game_id: int, balance: int = STARTING_BALANCE, username: str | None = None) -> Player:
         if not self.app.database.session:
             raise RuntimeError("Database session is not started")
-        new_player = Player(game_id=game_id, tg_user_id=tg_user_id, balance=balance)
+        new_player = Player(game_id=game_id, tg_user_id=tg_user_id, balance=balance, tg_username=username)
         async with self.app.database.session() as session:
             session.add(new_player)
             await session.commit()
@@ -116,6 +117,15 @@ class GameAccessor(BaseAccessor):
             result = await session.scalars(select(Stock).where(Stock.game_id == game_id))
             return list(result.all())
 
+    async def get_stock_by_ticket(self, game_id: int, ticket_name: str) -> Stock | None:
+        if not self.app.database.session:
+            raise RuntimeError("Database session is not started")
+        async with self.app.database.session() as session:
+            return await session.scalar(
+                select(Stock)
+                .where(Stock.game_id == game_id, Stock.ticket_name == ticket_name)
+            )
+
     async def get_player_portfolio(self, player_id: int) -> list[PlayerStock]:
         if not self.app.database.session:
             raise RuntimeError("Database session is not started")
@@ -149,6 +159,18 @@ class GameAccessor(BaseAccessor):
                     .values(balance=player.balance + delta)
                 )
                 await session.commit()
+    async def conver_player_stock_to_balane(self, player_id:int):
+        if not self.app.database.session:
+            raise RuntimeError("Database session is not started")
+        async with self.app.database.session() as session:
+            clear_balance = await session.scalar(select(Player.balance).where(Player.id == player_id)) or 0
+            value_stmt = (
+                select(func.sum(PlayerStock.quantity * Stock.current_price))
+                .join(Stock, PlayerStock.stock_id == Stock.id)
+                .where(PlayerStock.player_id == player_id)
+            )
+            portfolio_value = await session.scalar(value_stmt) or 0
+            return clear_balance + portfolio_value
 
     async def upsert_player_stock(self, player_id: int, stock_id: int, quantity_delta: int) -> None:
         if not self.app.database.session:
@@ -180,6 +202,62 @@ class GameAccessor(BaseAccessor):
             await session.refresh(new_stock)
             return new_stock
 
+    async def upsert_leaderboard_entry(
+        self,
+        game_id: int,
+        player_id: int,
+        player_tg_user_id: int,
+        player_username: str | None,
+        balance_delta: int,
+    ) -> LeaderboardEntry:
+        if not self.app.database.session:
+            raise RuntimeError("Database session is not started")
+        async with self.app.database.session() as session:
+            existing = await session.scalar(
+                select(LeaderboardEntry)
+                .where(LeaderboardEntry.player_tg_user_id == player_tg_user_id)
+                .order_by(LeaderboardEntry.recorded_at.desc())
+            )
+            if existing:
+                await session.execute(
+                    update(LeaderboardEntry)
+                    .where(LeaderboardEntry.id == existing.id)
+                    .values(
+                        final_balance=existing.final_balance + balance_delta,
+                        player_tg_user_id=player_tg_user_id,
+                        player_id=player_id,
+                        player_username=player_username,
+                        recorded_at=datetime.utcnow(),
+                        game_id=game_id,
+                    )
+                )
+                await session.commit()
+                await session.refresh(existing)
+                return existing
+
+            new_entry = LeaderboardEntry(
+                game_id=game_id,
+                player_id=player_id,
+                player_tg_user_id=player_tg_user_id,
+                player_username=player_username,
+                final_balance=balance_delta,
+            )
+            session.add(new_entry)
+            await session.commit()
+            await session.refresh(new_entry)
+            return new_entry
+    async def cleanup_game_resources(self, game_id: int) -> None:
+        if not self.app.database.session:
+            raise RuntimeError("Database session is not started")
+        async with self.app.database.session() as session:
+            round_ids = select(Round.id).where(Round.game_id == game_id)
+            player_ids = select(Player.id).where(Player.game_id == game_id)
+            await session.execute(delete(Move).where(Move.round_id.in_(round_ids)))
+            await session.execute(delete(PlayerStock).where(PlayerStock.player_id.in_(player_ids)))
+            await session.execute(delete(Round).where(Round.game_id == game_id))
+            await session.execute(delete(Stock).where(Stock.game_id == game_id))
+            await session.execute(delete(Player).where(Player.game_id == game_id))
+            await session.commit()
     async def get_game_by_chat_id(self, chat_id: int) -> Game | None:
         if not self.app.database.session:
             raise RuntimeError("Database session is not started")
@@ -192,4 +270,10 @@ class GameAccessor(BaseAccessor):
             result = await session.execute(stmt)
             game = result.scalars().first()
             return game
+
+    async def get_round(self, round_id: int) -> Round | None:
+        if not self.app.database.session:
+            raise RuntimeError("Database session is not started")
+        async with self.app.database.session() as session:
+            return await session.scalar(select(Round).where(Round.id == round_id))
             

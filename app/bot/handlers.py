@@ -35,7 +35,7 @@ class GameHandler:
         await self.accessor.create_game(chat_id)
         await self.bot.send_message(chat_id, "Игра создана! Используйте /join чтобы вступить, /start чтобы начать.")
 
-    async def handle_join(self, chat_id: int, tg_user_id: int) -> None:
+    async def handle_join(self, chat_id: int, tg_user_id: int, username: str | None) -> None:
         game = await self.accessor.get_game_by_chat_id(chat_id)
         if not game or game.state != GameState.WAITING:
             await self.bot.send_message(chat_id, "Нет активной игры. Используйте /new_game.")
@@ -44,8 +44,9 @@ class GameHandler:
         if existing_player:
             await self.bot.send_message(chat_id, "Вы уже в игре.")
             return
-        await self.accessor.create_player(tg_user_id, game.id)
-        await self.bot.send_message(chat_id, f"Игрок {tg_user_id} вступил в игру!")
+        await self.accessor.create_player(tg_user_id, game.id, username=username)
+        display_name = f"@{username}" if username else str(tg_user_id)
+        await self.bot.send_message(chat_id, f"Игрок {display_name} вступил в игру!")
 
     async def handle_start(self, chat_id: int) -> None:
         game = await self.accessor.get_game_by_chat_id(chat_id)
@@ -61,7 +62,13 @@ class GameHandler:
         await self.accessor.create_stock(game.id, "YNDX", 120)
         await self.accessor.update_game_state(GameState.IN_PROGRESS, game.id)
         await self.accessor.create_round(game.id, round_number=1, duration_seconds=ROUND_DURATION)
-        await self.bot.send_message(chat_id, "Игра началась!")
+        players = await self.accessor.get_players_by_game(game_id=game.id)
+        await self.bot.send_message(chat_id, f"Игра началась!\nСтартовый баланс всех пользователей {STARTING_BALANCE}₽")
+        participants = []
+        for player in players:
+            display = f"@{player.tg_username}" if player.tg_username else str(player.tg_user_id)
+            participants.append(f"• {display}")
+        await self.bot.send_message(chat_id, "Участники:\n" + "\n".join(participants))
         asyncio.create_task(start_round(self.app, game.id, chat_id, MAX_ROUNDS, ROUND_DURATION))
 
     async def handle_buy(self, chat_id: int, tg_user_id: int, ticket: str, quantity: int) -> None:
@@ -75,18 +82,42 @@ class GameHandler:
         if not game or game.state != GameState.IN_PROGRESS:
             await self.bot.send_message(chat_id, "Игра не идёт.")
             return
-        player = await self.accessor.get_player(tg_user_id)
+        player = await self.accessor.get_player(tg_user_id, game.id)
         if not player:
             await self.bot.send_message(chat_id, "Вы не в игре.")
+            return
+        if player.balance < 0:
+            await self.bot.send_message(chat_id, "Баланс отрицательный, вы банкрот — игра для вас окончена.")
             return
         current_round = await self.accessor.get_current_round(game.id)
         if not current_round:
             await self.bot.send_message(chat_id, "Раунд не найден.")
             return
+        stock = await self.accessor.get_stock_by_ticket(game.id, ticket)
+        if not stock:
+            await self.bot.send_message(chat_id, f"Акция {ticket} не найдена.")
+            return
+        if quantity <= 0:
+            await self.bot.send_message(chat_id, "Количество должно быть положительным.")
+            return
+        cost = stock.current_price * quantity
+        if move_type == "buy":
+            if player.balance < cost:
+                await self.bot.send_message(chat_id, "Недостаточно средств для покупки.")
+                return
+            await self.accessor.update_player_balance(player.id, -cost)
+            await self.accessor.upsert_player_stock(player.id, stock.id, quantity)
+            new_balance = player.balance - cost
+        else:
+            await self.accessor.update_player_balance(player.id, cost)
+            await self.accessor.upsert_player_stock(player.id, stock.id, -quantity)
         await self.accessor.create_move(current_round.id, move_type, player.id, ticket, quantity)
-        await self.bot.send_message(chat_id, f"Ход принят: {move_type.upper()} {ticket} x{quantity}")
+        message = f"Ход принят: {move_type.upper()} {ticket} x{quantity}"
+        if move_type == "buy":
+            message += f" — баланс: {new_balance}₽"
+        await self.bot.send_message(chat_id, message)
 
-    async def handle(self, chat_id: int, tg_user_id: int, text: str) -> None:
+    async def handle(self, chat_id: int, tg_user_id: int, username: str | None, text: str) -> None:
         parts = text.strip().split()
         if not parts:
             return
@@ -94,13 +125,19 @@ class GameHandler:
         if command == "/new_game":
             await self.handle_new_game(chat_id)
         elif command == "/join":
-            await self.handle_join(chat_id, tg_user_id)
+            await self.handle_join(chat_id, tg_user_id, username)
         elif command == "/start":
             await self.handle_start(chat_id)
-        elif command == "/buy" and len(parts) == 3:
-            await self.handle_buy(chat_id, tg_user_id, parts[1].upper(), int(parts[2]))
-        elif command == "/sell" and len(parts) == 3:
-            await self.handle_sell(chat_id, tg_user_id, parts[1].upper(), int(parts[2]))
+        elif command in ("/buy", "/sell") and len(parts) == 3:
+            try:
+                quantity = int(parts[2])
+            except ValueError:
+                await self.bot.send_message(chat_id, "Количество должно быть целым числом.")
+                return
+            if command == "/buy":
+                await self.handle_buy(chat_id, tg_user_id, parts[1].upper(), quantity)
+            else:
+                await self.handle_sell(chat_id, tg_user_id, parts[1].upper(), quantity)
         elif command == "/end_game":
             await self.handle_end_game(chat_id, tg_user_id)
 
@@ -113,8 +150,20 @@ class GameHandler:
         if not player:
             await self.bot.send_message(chat_id, "Вы не в игре.")
             return
-        winner = await finish_game(self.app, game.id, FinishReason.FORCED_BY_PLAYER)
-        if winner:
-            await self.bot.send_message(chat_id, f"Игра остановлена. Победитель: {winner.tg_user_id}!")
+        current_round = await self.accessor.get_current_round(game.id)
+        if current_round:
+            await self.accessor.try_close_round(current_round.id)
+        winners, capital = await finish_game(
+            self.app, game.id, FinishReason.FORCED_BY_PLAYER
+        )
+        if winners:
+            names = []
+            for winner in winners:
+                display = f"@{winner.tg_username}" if winner.tg_username else str(winner.tg_user_id)
+                names.append(display)
+            await self.bot.send_message(
+                chat_id,
+                f"Игра остановлена. Победитель(и): {', '.join(names)}! \n с капиталом {capital}",
+            )
         else:
             await self.bot.send_message(chat_id, "Игра остановлена.")

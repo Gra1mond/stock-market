@@ -13,9 +13,12 @@ class BotView(View):
 
         chat_id: int = message["chat"]["id"]
         tg_user_id: int = message["from"]["id"]
+        username = message["from"].get("username")
+        if not username:
+            username = message["from"].get("first_name")
         text: str = message.get("text", "")
 
         handler = GameHandler(self.request.app)
-        await handler.handle(chat_id=chat_id, tg_user_id=tg_user_id, text=text)
+        await handler.handle(chat_id=chat_id, tg_user_id=tg_user_id, username=username, text=text)
 
         return Response(status=200)
