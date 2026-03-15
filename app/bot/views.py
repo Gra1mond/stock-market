@@ -19,6 +19,8 @@ class BotView(View):
         text: str = message.get("text", "")
 
         handler = GameHandler(self.request.app)
-        await handler.handle(chat_id=chat_id, tg_user_id=tg_user_id, username=username, text=text)
+        await handler.handle(
+            chat_id=chat_id, tg_user_id=tg_user_id, username=username, text=text
+        )
 
         return Response(status=200)

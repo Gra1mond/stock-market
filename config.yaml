@@ -10,3 +10,7 @@ bot:
   webhook_url: "https://abc123.ngrok.io/tg/webhook"
 session:
   key: "a9gaZBQheMAOv9o4qCYny_MIQvEozc4OekrNg1kjBzg="
+admin:
+  email: admin@admin.com
+  password: admin
+  tg_user_id: 6600694429

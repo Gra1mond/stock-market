@@ -1,8 +1,9 @@
 import asyncio
 import logging
+import typing
 
 from app.bot.handlers import GameHandler
-import typing
+
 if typing.TYPE_CHECKING:
     from app.web.app import Application
 
@@ -44,12 +45,16 @@ async def _polling_loop(app: "Application") -> None:
                     text=text,
                 )
             except Exception:
-                logger.exception("Failed to handle telegram update %s", update.get("update_id"))
+                logger.exception(
+                    "Failed to handle telegram update %s",
+                    update.get("update_id"),
+                )
 
 
 async def start_polling(app: "Application") -> None:
     task = asyncio.create_task(_polling_loop(app))
     app["polling_task"] = task
+    await asyncio.sleep(0)
 
 
 async def stop_polling(app: "Application") -> None:

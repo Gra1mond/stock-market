@@ -25,11 +25,14 @@ class BotAccessor(BaseAccessor):
     def _url(self, method: str) -> str:
         return API_URL.format(token=self.app.config.bot.token, method=method)
 
-    async def send_message(self, chat_id: int, text: str) -> None:
-        await self._session.post(
-            self._url("sendMessage"),
-            json={"chat_id": chat_id, "text": text},
-        )
+    async def send_message(
+        self, chat_id: int, text: str, reply_markup: dict | None = None
+    ) -> None:
+        payload: dict[str, object] = {"chat_id": chat_id, "text": text}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        await self._session.post(self._url("sendMessage"), json=payload)
+
     """для этого нужен домен"""
 
     async def set_webhook(self, url: str) -> None:

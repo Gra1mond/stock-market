@@ -1,13 +1,15 @@
-from aiohttp.web import HTTPUnauthorized, HTTPForbidden
 from aiohttp.abc import StreamResponse
-from app.web.app import Request, View  # импортируем View тоже
+from aiohttp.web import HTTPForbidden, HTTPUnauthorized
 
-"""class AuthRequiredMixin:
-    request: Request  
-    
+from app.web.app import Request
+
+
+class AuthRequiredMixin:
+    request: Request
+
     async def _iter(self) -> StreamResponse:
         if self.request.users is None:
             if getattr(self.request, "_invalid_session", False):
                 raise HTTPForbidden
             raise HTTPUnauthorized
-        return await super()._iter()"""
+        return await super()._iter()
