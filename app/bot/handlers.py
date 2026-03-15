@@ -163,10 +163,7 @@ class GameHandler:
                         game.id, ticket
                     )
                     if not stock:
-                        error_message = (
-                            f"Акция {ticket} "
-                            "не найдена."
-                        )
+                        error_message = f"Акция {ticket} " "не найдена."
                     elif quantity <= 0:
                         error_message = "Количество должно быть положительным."
         if error_message or not (player and current_round and stock):
@@ -203,8 +200,7 @@ class GameHandler:
             )
             if not stock_entry or stock_entry.quantity < quantity:
                 error_message = (
-                    "У вас недостаточно акций "
-                    "в портфеле для продажи."
+                    "У вас недостаточно акций " "в портфеле для продажи."
                 )
             else:
                 await self.accessor.update_player_balance(
@@ -235,9 +231,7 @@ class GameHandler:
         await self.accessor.create_move(
             current_round.id, move_type, player.id, ticket, quantity
         )
-        message = (
-            f"Ход принят: {move_type.upper()} {ticket} x{quantity}"
-        )
+        message = f"Ход принят: {move_type.upper()} {ticket} x{quantity}"
         if move_type == "buy":
             message += f" — баланс: {new_balance}₽"
         await self.bot.send_message(chat_id, message)

@@ -1,4 +1,3 @@
-
 from aiohttp_apispec import setup_aiohttp_apispec
 from aiohttp_session import setup
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
