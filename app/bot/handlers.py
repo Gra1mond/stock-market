@@ -270,6 +270,9 @@ class GameHandler:
                 await self.handle_sell(
                     chat_id, tg_user_id, quick_ticker, quick_qty
                 )
+            return
+        if text:
+            await self.bot.send_message(chat_id, text)
 
     async def _dispatch_command(
         self,
